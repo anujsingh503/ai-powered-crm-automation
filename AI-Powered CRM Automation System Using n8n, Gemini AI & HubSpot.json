@@ -1,0 +1,473 @@
+{
+  "name": "AI-Powered CRM Automation System Using n8n, Gemini AI & HubSpot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crm",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -1216,
+        -368
+      ],
+      "id": "4f042af0-909c-4d92-ab39-297044420957",
+      "name": "Webhook",
+      "webhookId": "128177c3-409c-407b-9046-aacad038a825"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9c85dd27-550a-4fcd-a07a-0946db71ec6c",
+              "name": "Name",
+              "value": "={{ $json.body.full_name }}",
+              "type": "string"
+            },
+            {
+              "id": "fb68b49d-f36d-4683-b2cb-f23730602603",
+              "name": "Email",
+              "value": "={{ $json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "80297618-d481-4788-bc36-42d4053564db",
+              "name": "phone",
+              "value": "={{ $json.body.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "a08cc6ff-1d8d-402b-8416-49144a504414",
+              "name": "company_name",
+              "value": "={{ $json.body.company_name }}",
+              "type": "string"
+            },
+            {
+              "id": "b5282eff-564c-4b23-bece-d7fa1518cb9e",
+              "name": "budget",
+              "value": "={{ $json.body.budget_range }}",
+              "type": "string"
+            },
+            {
+              "id": "d0d2fc18-d1c7-465f-a052-1b182576c504",
+              "name": "project_description",
+              "value": "={{ $json.body.project_description }}",
+              "type": "string"
+            },
+            {
+              "id": "234452b0-890f-4b12-a6d1-7b876eb5ca02",
+              "name": "lead_intent",
+              "value": "={{ $json.body.lead_intent }}",
+              "type": "string"
+            },
+            {
+              "id": "b7e5d02a-8274-4059-ad6d-5295ca8bea4f",
+              "name": "service",
+              "value": "={{ $json.body.service_interest }}",
+              "type": "string"
+            },
+            {
+              "id": "ec0f38fa-bd93-4ee9-8884-43bdf6374614",
+              "name": "prefer_contact",
+              "value": "={{ $json.body.preferred_contact }}",
+              "type": "string"
+            },
+            {
+              "id": "3c5f6886-5459-4586-bb7e-a67b5fefd3ae",
+              "name": "prefer_contect_time",
+              "value": "={{ $json.body.preferred_time }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -992,
+        -368
+      ],
+      "id": "891a01ea-94c4-4fda-92f5-4bfd057fbe6f",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-lite",
+          "mode": "list",
+          "cachedResultName": "Gemini 3.1 Flash Lite"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=\nAnalyze the customer lead using all the provided form data.\n\nIMPORTANT RULES:\n\n1. Check the lead_intent field first.\n\n2. If lead_intent is \"immediate\":\n   - Treat the lead as urgent.\n   - Set priority to \"High\".\n   - Set lead_temperature to \"Hot\".\n   - Set buying_intent to \"High\".\n   - Recommend contacting the customer as soon as possible.\n   - Set follow_up_timing to \"Immediately\".\n   - Do not classify the lead as Cold only because the project description or budget details are missing.\n\n3. If lead_intent is \"planning\":\n   - Evaluate the lead normally.\n   - Set priority and lead_temperature based on the available information.\n\n4. If lead_intent is \"research\":\n   - Evaluate the lead as an early-stage prospect.\n\n5. Missing information should be listed separately.\n   Do not assume that missing budget or project details mean low buying intent.\n\nReturn valid JSON only with these fields:\nlead_temperature, priority, buying_intent, budget_assessment,\nlead_score, missing_information, ai_summary,\nrecommended_action, follow_up_timing, follow_up_method.\n\nCustomer data:\n{{ JSON.stringify($json) }}\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        -816,
+        -256
+      ],
+      "id": "96ac4738-76ee-431d-9f6b-3c031ac929f7",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "mC5AUn9ipFf6eHOV",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst item = $input.item.json;\n\n// Gemini ke response se text nikalein\nlet rawText = item.content?.parts?.[0]?.text ?? \"\";\n\nif (!rawText) {\n  throw new Error(\"Gemini response text nahi mila. Input JSON check karein.\");\n}\n\n// Agar Gemini ne Markdown code fence diya ho to hata dein\nrawText = rawText\n  .replace(/```json\\s*/i, \"\")\n  .replace(/```\\s*/g, \"\")\n  .trim();\n\n// JSON ko object mein convert karein\nconst analysis = JSON.parse(rawText);\n\n// Har AI field ko alag output field banayein\nreturn {\n  json: {\n    lead_temperature: analysis.lead_temperature,\n    priority: analysis.priority,\n    buying_intent: analysis.buying_intent,\n    budget_assessment: analysis.budget_assessment,\n    lead_score: analysis.lead_score,\n    missing_information: analysis.missing_information,\n    ai_summary: analysis.ai_summary,\n    recommended_action: analysis.recommended_action,\n    follow_up_timing: analysis.follow_up_timing,\n    follow_up_method: analysis.follow_up_method\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        -256
+      ],
+      "id": "12dfc0ff-a130-46e2-8130-34a4aa2d93e0",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -352,
+        -464
+      ],
+      "id": "9d655276-3e77-411e-8865-5ee4bf804f6d",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "tableId": "crm_workflow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "Name",
+              "fieldValue": "={{ $json.Name }}"
+            },
+            {
+              "fieldId": "Email",
+              "fieldValue": "={{ $json.Email }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $json.phone }}"
+            },
+            {
+              "fieldId": "company_name",
+              "fieldValue": "={{ $json.company_name }}"
+            },
+            {
+              "fieldId": "budget",
+              "fieldValue": "={{ $json.budget }}"
+            },
+            {
+              "fieldId": "project_description",
+              "fieldValue": "={{ $json.project_description }}"
+            },
+            {
+              "fieldId": "lead_intent",
+              "fieldValue": "={{ $json.lead_intent }}"
+            },
+            {
+              "fieldId": "service",
+              "fieldValue": "={{ $json.service }}"
+            },
+            {
+              "fieldId": "prefer_contact",
+              "fieldValue": "={{ $json.prefer_contact }}"
+            },
+            {
+              "fieldId": "prefer_contect_time",
+              "fieldValue": "={{ $json.prefer_contect_time }}"
+            },
+            {
+              "fieldId": "lead_temperature",
+              "fieldValue": "={{ $json.lead_temperature }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": "={{ $json.priority }}"
+            },
+            {
+              "fieldId": "buying_intent",
+              "fieldValue": "={{ $json.buying_intent }}"
+            },
+            {
+              "fieldId": "budget_assessment",
+              "fieldValue": "={{ $json.budget_assessment }}"
+            },
+            {
+              "fieldId": "lead_score",
+              "fieldValue": "={{ $json.lead_score }}"
+            },
+            {
+              "fieldId": "ai_summary",
+              "fieldValue": "={{ $json.ai_summary }}"
+            },
+            {
+              "fieldId": "recommended_action",
+              "fieldValue": "={{ $json.recommended_action }}"
+            },
+            {
+              "fieldId": "follow_up_timing",
+              "fieldValue": "={{ $json.follow_up_timing }}"
+            },
+            {
+              "fieldId": "follow_up_method",
+              "fieldValue": "={{ $json.follow_up_method }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -576
+      ],
+      "id": "116bcdf3-7367-4650-b2aa-d36993165113",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SURIjQAfQr6lp76a",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b38b030b-3207-4471-98dc-a9486ebf0ade",
+              "leftValue": "={{ $json.lead_temperature }}",
+              "rightValue": "Hot",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        208,
+        -544
+      ],
+      "id": "085c88e6-22c7-4f7e-a329-17855353aa57",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "anujs503@gmail.com",
+        "subject": "Please connect to customber",
+        "emailType": "text",
+        "message": "Immediate call to customber.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        352,
+        -720
+      ],
+      "id": "c81477f6-b596-4e37-a258-bd22f536442a",
+      "name": "Send a message",
+      "webhookId": "a558ee14-7cdc-4c9e-803f-aa2e5760599d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pg6xKvdnJC2bamlC",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "email": "anujs503@gmail.com",
+        "additionalFields": {
+          "companyName": "={{ $json.company_name }}",
+          "firstName": "={{ $json.Name }}",
+          "message": "={{ $json.project_description }}",
+          "phoneNumber": "={{ $json.phone }}"
+        },
+        "options": {
+          "resolveData": false
+        }
+      },
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        -320
+      ],
+      "id": "630751a8-a6f8-405c-8551-f331cbbbf88d",
+      "name": "Create or update a contact",
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "8SdHqpibymOywRlb",
+          "name": "HubSpot Service Key account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\n\nlet formData = {};\nlet aiData = {};\n\nfor (const item of items) {\n  const data = item.json;\n\n  // Form data पहचानें\n  if (data.Email || data.email || data.company_name) {\n    formData = { ...formData, ...data };\n  }\n\n  // AI data पहचानें\n  if (data.lead_temperature !== undefined) {\n    aiData = { ...aiData, ...data };\n  }\n\n  // AI response अगर JSON string में है\n  if (typeof data.output === 'string') {\n    try {\n      const parsed = JSON.parse(data.output);\n      aiData = { ...aiData, ...parsed };\n    } catch (e) {}\n  }\n\n  // AI response अगर content.parts[0].text में है\n  const text = data.content?.parts?.[0]?.text;\n\n  if (typeof text === 'string') {\n    try {\n      const cleaned = text\n        .replace(/```json/gi, '')\n        .replace(/```/g, '')\n        .trim();\n\n      aiData = { ...aiData, ...JSON.parse(cleaned) };\n    } catch (e) {}\n  }\n}\n\nreturn [{\n  json: {\n    ...formData,\n    lead_temperature: aiData.lead_temperature ?? null,\n    priority: aiData.priority ?? null,\n    buying_intent: aiData.buying_intent ?? null,\n    budget_assessment: aiData.budget_assessment ?? null,\n    lead_score: aiData.lead_score ?? null,\n    missing_information: aiData.missing_information ?? null,\n    ai_summary: aiData.ai_summary ?? null,\n    recommended_action: aiData.recommended_action ?? null,\n    follow_up_timing: aiData.follow_up_timing ?? null,\n    follow_up_method: aiData.follow_up_method ?? null\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        -464
+      ],
+      "id": "f59f8e3c-0eeb-475a-9ebb-59d1aa491486",
+      "name": "Code in JavaScript1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create or update a contact": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create or update a contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "4b601839-669f-446c-9832-493d048d46ba",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fbf22b2e84855209db76807778282ae571cf4de59e0a9da7a29773489335e046"
+  },
+  "nodeGroups": [],
+  "id": "TPSDLBaP0msiFExG",
+  "tags": []
+}
