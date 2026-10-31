@@ -37,6 +37,16 @@ ai-powered-crm-automation/
 ├── screenshots/
 └── README.md
 ```
+## Project Screenshots
+
+### n8n Workflow
+![CRM Workflow](screenshots/workflow.png)
+
+### Gemini AI Execution
+![Gemini AI](screenshots/gemini_output.png)
+
+### HubSpot CRM
+![HubSpot CRM](screenshots/supabase_output.png)
 
 ## Setup Instructions
 
